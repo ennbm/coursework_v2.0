@@ -12,7 +12,6 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Конфігурація бази даних
 const dbConfig = {
     host: process.env.DB_HOST,
     user: process.env.DB_USER,
@@ -20,27 +19,24 @@ const dbConfig = {
     database: process.env.DB_NAME,
 };
 
-// Створюємо пул з'єднань до бази даних
 const pool = mysql.createPool(dbConfig);
 
-// Створюємо підключення до бази даних
 const getConnection = async () => {
     return await pool.getConnection();
 };
 
-// Конфігурація
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 const JWT_EXPIRATION = '1h';
 const BCRYPT_SALT_ROUNDS = 12;
-const blacklistedTokens = new Set();  // Чорний список токенів
+const blacklistedTokens = new Set();  
 
-// Функція для обробки помилок
+
 const handleError = (res, error) => {
     console.error(error);
     res.status(500).json({ message: 'Сталася помилка, спробуйте пізніше.', error: error.message });
 };
 
-// Middleware для перевірки токену
+
 const authenticateToken = (requiredRoles = []) => async (req, res, next) => {
     const token = req.headers['authorization'];
     if (!token) return res.status(401).json({ message: 'Токен не надано' });
@@ -53,7 +49,6 @@ const authenticateToken = (requiredRoles = []) => async (req, res, next) => {
         if (err) return res.status(403).json({ message: 'Недійсний токен' });
         req.user = user;
 
-        // Перевірка на роль
         if (requiredRoles.length && !requiredRoles.includes(user.role)) {
             return res.status(403).json({ message: `Доступ заборонено для ролі: ${user.role}` });
         }
@@ -62,7 +57,7 @@ const authenticateToken = (requiredRoles = []) => async (req, res, next) => {
     });
 };
 
-// Реєстрація користувача
+
 app.post('/register', [
     body('username').isLength({ min: 5 }).withMessage('Ім\'я повинно бути не менше 5 символів'),
     body('password').isLength({ min: 8 }).withMessage('Пароль повинен бути не менше 8 символів'),
@@ -133,17 +128,34 @@ app.get('/admin/services', authenticateToken(['admin', 'manager']), async (req, 
 
 // (тільки для адміністраторів)
 app.put('/admin/services/:id', authenticateToken(['admin', 'manager']), async (req, res) => {
-    const serviceId = req.params.id;
-    const { name, price, description } = req.body;
+    const serviceId = req.params.id;  // Отримуємо ID послуги з параметрів URL
+    const { name, price, description } = req.body;  // Отримуємо нові дані для оновлення
+
+    // Перевірка на наявність усіх полів для оновлення
+    if (!name || !price || !description) {
+        return res.status(400).json({ message: 'Усі поля (назва, ціна, опис) повинні бути заповнені.' });
+    }
+
+    // SQL-запит для оновлення послуги
     const query = 'UPDATE services SET name = ?, price = ?, description = ? WHERE id = ?';
 
     try {
-        await getConnection().then((connection) => connection.execute(query, [name, price, description, serviceId]));
+        // Виконуємо SQL-запит
+        const [result] = await getConnection().then((connection) =>
+            connection.execute(query, [name, price, description, serviceId])
+        );
+
+        // Перевірка, чи було оновлено хоча б один рядок
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'Послугу з таким ID не знайдено.' });
+        }
+
         res.send('Послугу оновлено');
     } catch (error) {
-        handleError(res, error);
+        handleError(res, error);  // Обробка помилок при виконанні запиту
     }
 });
+
 
 // Створення запису користувача на послугу
 app.post('/appointments', authenticateToken(['user']), async (req, res) => {
