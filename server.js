@@ -28,17 +28,17 @@ const getConnection = async () => {
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 const JWT_EXPIRATION = '1h';
 const BCRYPT_SALT_ROUNDS = 12;
-const blacklistedTokens = new Set();  
-
+const blacklistedTokens = new Set();   // Чорний список токенів
 
 const handleError = (res, error) => {
     console.error(error);
     res.status(500).json({ message: 'Сталася помилка, спробуйте пізніше.', error: error.message });
 };
 
-
+// Середовище для аутентифікації
 const authenticateToken = (requiredRoles = []) => async (req, res, next) => {
-    const token = req.headers['authorization'];
+    const token = req.headers['authorization'] && req.headers['authorization'].split(' ')[1]; // Отримуємо токен
+
     if (!token) return res.status(401).json({ message: 'Токен не надано' });
 
     if (blacklistedTokens.has(token)) {
@@ -57,7 +57,12 @@ const authenticateToken = (requiredRoles = []) => async (req, res, next) => {
     });
 };
 
+// Маршрут для перегляду чорного списку токенів
+app.get('/blacklisted_tokens', (req, res) => {
+    res.json(Array.from(blacklistedTokens)); // Повертаємо чорний список токенів
+});
 
+// Реєстрація нового користувача
 app.post('/register', [
     body('username').isLength({ min: 5 }).withMessage('Ім\'я повинно бути не менше 5 символів'),
     body('password').isLength({ min: 8 }).withMessage('Пароль повинен бути не менше 8 символів'),
@@ -107,15 +112,15 @@ app.post('/login', async (req, res) => {
 
 // Логаут користувача
 app.post('/logout', (req, res) => {
-    const token = req.headers['authorization'];
+    const token = req.headers['authorization'] && req.headers['authorization'].split(' ')[1];
     if (token) {
         blacklistedTokens.add(token); // Додаємо токен до чорного списку
     }
     res.status(200).json({ message: 'Успішний вихід із системи' });
 });
 
-// (тільки для адміністраторів)
-app.get('/admin/services', authenticateToken(['admin', 'manager']), async (req, res) => {
+// Отримання послуг (доступно для всіх авторизованих користувачів)
+app.get('/services', authenticateToken(), async (req, res) => {
     const query = 'SELECT * FROM services';
 
     try {
@@ -127,35 +132,30 @@ app.get('/admin/services', authenticateToken(['admin', 'manager']), async (req, 
 });
 
 // (тільки для адміністраторів)
-app.put('/admin/services/:id', authenticateToken(['admin', 'manager']), async (req, res) => {
-    const serviceId = req.params.id;  // Отримуємо ID послуги з параметрів URL
-    const { name, price, description } = req.body;  // Отримуємо нові дані для оновлення
+app.put('/services/:id', authenticateToken(['admin', 'manager']), async (req, res) => {
+    const serviceId = req.params.id;
+    const { name, price, description } = req.body;
 
-    // Перевірка на наявність усіх полів для оновлення
     if (!name || !price || !description) {
         return res.status(400).json({ message: 'Усі поля (назва, ціна, опис) повинні бути заповнені.' });
     }
 
-    // SQL-запит для оновлення послуги
     const query = 'UPDATE services SET name = ?, price = ?, description = ? WHERE id = ?';
 
     try {
-        // Виконуємо SQL-запит
         const [result] = await getConnection().then((connection) =>
             connection.execute(query, [name, price, description, serviceId])
         );
 
-        // Перевірка, чи було оновлено хоча б один рядок
         if (result.affectedRows === 0) {
             return res.status(404).json({ message: 'Послугу з таким ID не знайдено.' });
         }
 
         res.send('Послугу оновлено');
     } catch (error) {
-        handleError(res, error);  // Обробка помилок при виконанні запиту
+        handleError(res, error);
     }
 });
-
 
 // Створення запису користувача на послугу
 app.post('/appointments', authenticateToken(['user']), async (req, res) => {
