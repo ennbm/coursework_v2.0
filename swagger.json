@@ -1,0 +1,213 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+      "title": "Piercing Service API",
+      "version": "1.0.0",
+      "description": "API для реєстрації клієнтів на послуги пірсингу"
+    },
+    "components": {
+      "securitySchemes": {
+        "bearerAuth": {
+          "type": "http",
+          "scheme": "bearer",
+          "bearerFormat": "JWT"
+        }
+      }
+    },
+    "security": [
+      {
+        "bearerAuth": []
+      }
+    ],
+    "paths": {
+      "/register": {
+        "post": {
+          "summary": "Реєстрація нового користувача",
+          "tags": ["Auth"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "username": { "type": "string" },
+                    "password": { "type": "string" },
+                    "role": { "type": "string", "default": "user" }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": { "description": "Користувач успішно зареєстрований" },
+            "400": { "description": "Помилка валідації" }
+          }
+        }
+      },
+      "/login": {
+        "post": {
+          "summary": "Логін користувача",
+          "tags": ["Auth"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "username": { "type": "string" },
+                    "password": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": { "description": "Успішний логін, повертається JWT токен" },
+            "401": { "description": "Неправильне ім'я користувача або пароль" }
+          }
+        }
+      },
+      "/logout": {
+        "post": {
+          "summary": "Логаут користувача",
+          "tags": ["Auth"],
+          "security": [
+            {
+              "bearerAuth": []
+            }
+          ],
+          "responses": {
+            "200": { "description": "Успішний вихід із системи" }
+          }
+        }
+      },
+      "/services": {
+        "get": {
+          "summary": "Отримання списку послуг",
+          "tags": ["Services"],
+          "security": [
+            {
+              "bearerAuth": []
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Список доступних послуг",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": { "type": "integer" },
+                        "name": { "type": "string" },
+                        "price": { "type": "number", "format": "float" },
+                        "description": { "type": "string" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/services/{id}": {
+        "put": {
+          "summary": "Оновлення даних послуги (тільки для адміністраторів)",
+          "tags": ["Services"],
+          "parameters": [
+            {
+              "in": "path",
+              "name": "id",
+              "required": true,
+              "description": "ID послуги для оновлення",
+              "schema": {
+                "type": "integer"
+              }
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "name": { "type": "string" },
+                    "price": { "type": "number", "format": "float" },
+                    "description": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": { "description": "Послугу оновлено" },
+            "400": { "description": "Помилка валідації" },
+            "403": { "description": "Доступ заборонено" },
+            "404": { "description": "Послугу не знайдено" }
+          }
+        }
+      },
+      "/appointments": {
+        "post": {
+          "summary": "Створення запису користувача на послугу",
+          "tags": ["Appointments"],
+          "security": [
+            {
+              "bearerAuth": []
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "serviceId": { "type": "integer" },
+                    "dayId": { "type": "integer" },
+                    "hourId": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": { "description": "Запис успішно створено" },
+            "400": { "description": "Помилка валідації" }
+          }
+        }
+      },
+      "/free_days": {
+        "get": {
+          "summary": "Отримання доступних днів для запису",
+          "tags": ["Appointments"],
+          "responses": {
+            "200": {
+              "description": "Список доступних днів",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": { "type": "integer" },
+                        "date": { "type": "string", "format": "date" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  
